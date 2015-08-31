@@ -36,17 +36,17 @@ args['--github_hipchat_name_list'].split(',').forEach(function(githubHipchatName
 })
 
 // Make sure the table is already created.
-put(args['createUrl'], "{}", function(){
+put("https://emodb-cert.qa.us-east-1.nexus.bazaarvoice.com/sor/1/_table/github:brandbattle:pullrequests?options=placement:'ugc_global:ugc'&audit=comment:'initial+provisioning',host:aws-tools-02", "{}", function(){
   // Check to see if the PR ${ghprbPullId} already has a reviewer
   var pullRequestId = args['--github_pull_request_link'].split('/').splice(-1).pop()
-  get(args['checkUrl'].replace('{id}', pullRequestId), function(body){
+  get("https://emodb-cert.qa.us-east-1.nexus.bazaarvoice.com/sor/1/github:brandbattle:pullrequests/"+ pullRequestId, function(body){
     var pullRequest = JSON.parse(body)
     if(pullRequest['assigned']){
       console.log("Already assigned a reviewer for pull request ID " + pullRequestId + ". Exiting.")
     } else {
       console.log("Assigning a new pull request reviewer for pull request ID " + pullRequestId)
       assignReviewer(githubToHipchatName, args['--github_commit_author'], args['--github_pull_request_link'], args['--hipchat_room_id'], args['--hipchat_auth_token'], 2)
-      put(args['updateUrl'].replace('{id}', pullRequestId), '{"assigned": true}', function(){
+      put("https://emodb-cert.qa.us-east-1.nexus.bazaarvoice.com/sor/1/github:brandbattle:pullrequests/{id}?audit=comment:'initial+provisioning',host:aws-tools-02".replace('{id}', pullRequestId), '{"assigned": true}', function(){
         console.log("Successfully assigned reviewer for pull request ID " + pullRequestId)
       })
     }
@@ -93,27 +93,6 @@ function validate(){
     }) + ". See --help for more information.")
     process.exit(-1)
   }
-
-  // Missing environment variables?
-  createUrl = process.env.PULL_REQUEST_CREATE_TABLE_URL || ''; // The url of the HTTP service to create a table for storing related information using PUT',
-  checkUrl = process.env.PULL_REQUEST_CHECK_URL || '';         // The url of the HTTP service to retrieve a record in a requested table using GET',
-  updateUrl = process.env.PULL_REQUEST_UPDATE_URL || '';       // The url of the HTTP service to update a record in a requested table using PUT'
-
-  if(createUrl == '') {
-    console.error("Missing environment variable PULL_REQUEST_CREATE_TABLE_URL")
-  }
-
-  if(updateUrl == '') {
-    console.error("Missing environment variable PULL_REQUEST_UPDATE_URL")
-  }
-
-  if(checkUrl == '') {
-    console.error("Missing environment variable PULL_REQUEST_CHECK_URL")
-  }
-
-  args['createUrl'] = createUrl
-  args['updateUrl'] = updateUrl
-  args['checkUrl'] = checkUrl
 
   return args
 }
