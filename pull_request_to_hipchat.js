@@ -13,7 +13,10 @@ var requiredArgs = {
   '--hipchat_auth_token': 'Hipchat authentication token for making RESTful requests',
   '--github_hipchat_name_list': 'A list of Github, Hipchat catenated by - separated by , list of usernames e.g. thaibui-thai,vikrim1-VictorKrimshteyn,mattmcclain-MattMcclain,kerrykimbrough-KerryKimbrough,EdwinWiseOne-EdwinWise',
   '--github_pull_request_link': 'The pull request URL in Github',
-  '--github_commit_author': 'The name of the committer of this pull request in Github e.g. thaibui'
+  '--github_commit_author': 'The name of the committer of this pull request in Github e.g. thaibui',
+  '--pull_request_create_url': 'The url of the HTTP service to create a table for storing related information using PUT',
+  '--pull_request_check_url': 'The url of the HTTP service to retrieve a record in a requested table using GET',
+  '--pull_request_update_url': 'The url of the HTTP service to update a record in a requested table using PUT'
 }
 var http = require('http');
 var https = require('https');
@@ -35,18 +38,18 @@ args['--github_hipchat_name_list'].split(',').forEach(function(githubHipchatName
   githubToHipchatName[githubUsername] = hipchatUsername
 })
 
-// Make sure emodb table github:brandbattle:pullrequests is created.
-put("https://emodb-cert.qa.us-east-1.nexus.bazaarvoice.com/sor/1/_table/github:brandbattle:pullrequests?options=placement:'ugc_global:ugc'&audit=comment:'initial+provisioning',host:aws-tools-02", "{}", function(){
+// Make sure the table is already created.
+put(args['--pull_request_create_url'], "{}", function(){
   // Check to see if the PR ${ghprbPullId} already has a reviewer
   var pullRequestId = args['--github_pull_request_link'].split('/').splice(-1).pop()
-  get("https://emodb-cert.qa.us-east-1.nexus.bazaarvoice.com/sor/1/github:brandbattle:pullrequests/" + pullRequestId, function(body){
+  get(args['--pull_request_check_url'].replace('{id}', pullRequestId), function(body){
     var pullRequest = JSON.parse(body)
     if(pullRequest['assigned']){
       console.log("Already assigned a reviewer for pull request ID " + pullRequestId + ". Exiting.")
     } else {
       console.log("Assigning a new pull request reviewer for pull request ID " + pullRequestId)
       assignReviewer(githubToHipchatName, args['--github_commit_author'], args['--github_pull_request_link'], args['--hipchat_room_id'], args['--hipchat_auth_token'], 2)
-      put("https://emodb-cert.qa.us-east-1.nexus.bazaarvoice.com/sor/1/github:brandbattle:pullrequests/" + pullRequestId + "?audit=comment:'initial+provisioning',host:aws-tools-02", '{"assigned": true}', function(){
+      put(args['--pull_request_update_url'].replace('{id}', pullRequestId), '{"assigned": true}', function(){
         console.log("Successfully assigned reviewer for pull request ID " + pullRequestId)
       })
     }
@@ -68,7 +71,7 @@ function validate(){
     var key = argsCLI[i];
 
     if(key == '--help'){
-      printHelp();
+      printHelp()
       process.exit(-1)
     }
 
