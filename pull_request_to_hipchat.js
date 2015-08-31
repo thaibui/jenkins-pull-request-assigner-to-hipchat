@@ -1,3 +1,13 @@
+/***************************************
+ * Github Pull Request to Hipchat
+ *
+ * This script notifies a specified Hipchat Room ID and assign a reviewer
+ * to review a pull request from a list of provided names. Combining this
+ * script with Jenkins Github Pull Request Builder, it is possible
+ * to automatically build a new pull request then assign a new reviewer
+ * , notify a Hipchat room if the build is successful.
+ **************************************/
+
 var requiredArgs = {
   '--hipchat_room_id': 'Hipchat room ID for posing notification messages',
   '--hipchat_auth_token': 'Hipchat authentication token for making RESTful requests',
@@ -10,38 +20,81 @@ var https = require('https');
 var util = require('util');
 var url = require('url')
 
-/**
- * Array of arguments. Print a help message if the number of arguments is less than the required number
- * @type {Array}
- */
-var argsCLI = process.argv.splice(2) || []
+var args = validate()
+
+// Split the name list into a map of github usernames -> hipchat usernames
+var githubToHipchatName = {}
+args['--github_hipchat_name_list'].split(',').forEach(function(githubHipchatName){
+  var tuple = githubHipchatName.split('-') || []
+  if (tuple.length != 2){
+    console.error("Incorrect Githip-Hipchat name list " + githubHipchatName  + ". Use --help for an example of correct name list.");
+    process.exit(-1)
+  }
+  var githubUsername = tuple[0]
+  var hipchatUsername = tuple[1]
+  githubToHipchatName[githubUsername] = hipchatUsername
+})
+
+// Make sure emodb table github:brandbattle:pullrequests is created.
+put("https://emodb-cert.qa.us-east-1.nexus.bazaarvoice.com/sor/1/_table/github:brandbattle:pullrequests?options=placement:'ugc_global:ugc'&audit=comment:'initial+provisioning',host:aws-tools-02", "{}", function(){
+  // Check to see if the PR ${ghprbPullId} already has a reviewer
+  var pullRequestId = args['--github_pull_request_link'].split('/').splice(-1).pop()
+  get("https://emodb-cert.qa.us-east-1.nexus.bazaarvoice.com/sor/1/github:brandbattle:pullrequests/" + pullRequestId, function(body){
+    var pullRequest = JSON.parse(body)
+    if(pullRequest['assigned']){
+      console.log("Already assigned a reviewer for pull request ID " + pullRequestId + ". Exiting.")
+    } else {
+      console.log("Assigning a new pull request reviewer for pull request ID " + pullRequestId)
+      assignReviewer(githubToHipchatName, args['--github_commit_author'], args['--github_pull_request_link'], args['--hipchat_room_id'], args['--hipchat_auth_token'], 2)
+      put("https://emodb-cert.qa.us-east-1.nexus.bazaarvoice.com/sor/1/github:brandbattle:pullrequests/" + pullRequestId + "?audit=comment:'initial+provisioning',host:aws-tools-02", '{"assigned": true}', function(){
+        console.log("Successfully assigned reviewer for pull request ID " + pullRequestId)
+      })
+    }
+  })
+})
+
+/***********************************
+ * UTILITIES
+ **********************************/
 
 /**
- * Map of required argument keys to its values. Print a help message if an argument is unknown or if a required argument is missing
- * @type {{}}
+ * Validate the command line arguments. Returned the parsed arguments if the validation passes
  */
-var args = {};
-for(var i = 0; i < argsCLI.length; i++){
-  var key = argsCLI[i];
+function validate(){
+  var argsCLI = process.argv.splice(2) || []
 
-  if(key == '--help'){
-    printHelp();
+  var args = {};
+  for(var i = 0; i < argsCLI.length; i++){
+    var key = argsCLI[i];
+
+    if(key == '--help'){
+      printHelp();
+      process.exit(-1)
+    }
+
+    if(requiredArgs.hasOwnProperty(key)){
+      var value = argsCLI[++i] || ''
+      if (value.trim().length == 0){
+        console.error("Value for argument " + key + " cannot be empty")
+        process.exit(-1)
+      }
+
+      args[key] = value
+    } else {
+      console.error("Unknown argument " + key + ". For a list of arguments and its usage, use --help");
+      process.exit(-1)
+    }
+  }
+
+  // Missing arguments
+  if(Object.keys(args).length < Object.keys(requiredArgs).length){
+    console.error("Missing arguments " + Object.keys(requiredArgs).filter(function(e){
+      return Object.keys(args).indexOf(e) < 0
+    }) + ". See --help for more information.")
     process.exit(-1)
   }
 
-  if(requiredArgs.hasOwnProperty(key)){
-    args[key] = argsCLI[++i];
-  } else {
-    console.error("Unknown argument " + key + ". For a list of arguments and its usage, use --help");
-  }
-}
-
-// Missing arguments
-if(Object.keys(args).length < Object.keys(requiredArgs).length){
-  console.error("Missing arguments " + Object.keys(requiredArgs).filter(function(e){
-    return Object.keys(args).indexOf(e) < 0
-  }) + ". See --help for more information.")
-  process.exit(-1)
+  return args
 }
 
 /**
@@ -210,34 +263,3 @@ function assignReviewer(nameList, commitAuthor, pullRequestURL, roomId, authToke
       + " but pull-request-to-hipchat needs a list of two or more authors including the commit's author " + commitAuthor)
   }
 }
-
-// Split the name list into a map of github usernames -> hipchat usernames
-var githubToHipchatName = {}
-args['--github_hipchat_name_list'].split(',').forEach(function(githubHipchatName){
-  var tuple = githubHipchatName.split('-') || []
-  if (tuple.length != 2){
-    console.error("Incorrect Githip-Hipchat name list " + githubHipchatName  + ". Use --help for an example of correct name list.");
-    process.exit(-1)
-  }
-  var githubUsername = tuple[0]
-  var hipchatUsername = tuple[1]
-  githubToHipchatName[githubUsername] = hipchatUsername
-})
-
-// Make sure emodb table github:brandbattle:pullrequests is created.
-put("https://emodb-cert.qa.us-east-1.nexus.bazaarvoice.com/sor/1/_table/github:brandbattle:pullrequests?options=placement:'ugc_global:ugc'&audit=comment:'initial+provisioning',host:aws-tools-02", "{}", function(){
-  // Check to see if the PR ${ghprbPullId} already has a reviewer
-  var pullRequestId = args['--github_pull_request_link'].split('/').splice(-1).pop()
-  get("https://emodb-cert.qa.us-east-1.nexus.bazaarvoice.com/sor/1/github:brandbattle:pullrequests/" + pullRequestId, function(body){
-    var pullRequest = JSON.parse(body)
-    if(pullRequest['assigned']){
-      console.log("Already assigned a reviewer for pull request ID " + pullRequestId + ". Exiting.")
-    } else {
-      console.log("Assigning a new pull request reviewer for pull request ID " + pullRequestId)
-      assignReviewer(githubToHipchatName, args['--github_commit_author'], args['--github_pull_request_link'], args['--hipchat_room_id'], args['--hipchat_auth_token'], 2)
-      put("https://emodb-cert.qa.us-east-1.nexus.bazaarvoice.com/sor/1/github:brandbattle:pullrequests/" + pullRequestId + "?audit=comment:'initial+provisioning',host:aws-tools-02", '{"assigned": true}', function(){
-        console.log("Successfully assigned reviewer for pull request ID " + pullRequestId)
-      })
-    }
-  })
-})
