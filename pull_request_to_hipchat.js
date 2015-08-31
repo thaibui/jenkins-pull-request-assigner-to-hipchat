@@ -15,7 +15,6 @@ var requiredArgs = {
   '--github_pull_request_link': 'The pull request URL in Github',
   '--github_commit_author': 'The name of the committer of this pull request in Github e.g. thaibui'
 }
-var http = require('http');
 var https = require('https');
 var util = require('util');
 var url = require('url')
@@ -131,18 +130,15 @@ function post(msg, roomId, authToken, successCallback){
     'message': msg
   });
 
-  var options = {
-    host: "https://api.hipchat.com",
-    port: 80,
-    path: "/v2/room/" + roomId + "/notification?auth_token=" + authToken,
+  var options = util._extend({
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Content-Length': body.length
     }
-  }
+  }, url.parse("https://api.hipchat.com" + "/v2/room/" + roomId + "/notification?auth_token=" + authToken))
 
-  invoke(http, options, body, successCallback)
+  invoke(https, options, body, successCallback)
 }
 
 /**
@@ -187,14 +183,14 @@ function put(requestUrl, data, responseCallback){
 
 /**
  * Invoke a HTTP request, write the data to the request, handle callback
- * @param http The http client object, could be http or https
+ * @param client The http client object, could be http or https
  * @param options
  * @param data
  * @param responseCallback
  */
-function invoke(http, options, data, responseCallback){
+function invoke(client, options, data, responseCallback){
   console.log("[INFO] HTTP request: " + JSON.stringify(options))
-  var request = http.request(options, function(res){
+  var request = client.request(options, function(res){
     var body = '';
 
     res.on('data', function(chunk){
