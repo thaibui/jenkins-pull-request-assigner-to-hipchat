@@ -13,10 +13,7 @@ var requiredArgs = {
   '--hipchat_auth_token': 'Hipchat authentication token for making RESTful requests',
   '--github_hipchat_name_list': 'A list of Github, Hipchat catenated by - separated by , list of usernames e.g. thaibui-thai,vikrim1-VictorKrimshteyn,mattmcclain-MattMcclain,kerrykimbrough-KerryKimbrough,EdwinWiseOne-EdwinWise',
   '--github_pull_request_link': 'The pull request URL in Github',
-  '--github_commit_author': 'The name of the committer of this pull request in Github e.g. thaibui',
-  '--pull_request_create_url': 'The url of the HTTP service to create a table for storing related information using PUT',
-  '--pull_request_check_url': 'The url of the HTTP service to retrieve a record in a requested table using GET',
-  '--pull_request_update_url': 'The url of the HTTP service to update a record in a requested table using PUT'
+  '--github_commit_author': 'The name of the committer of this pull request in Github e.g. thaibui'
 }
 var http = require('http');
 var https = require('https');
@@ -39,17 +36,17 @@ args['--github_hipchat_name_list'].split(',').forEach(function(githubHipchatName
 })
 
 // Make sure the table is already created.
-put(args['--pull_request_create_url'], "{}", function(){
+put(args['createUrl'], "{}", function(){
   // Check to see if the PR ${ghprbPullId} already has a reviewer
   var pullRequestId = args['--github_pull_request_link'].split('/').splice(-1).pop()
-  get(args['--pull_request_check_url'].replace('{id}', pullRequestId), function(body){
+  get(args['checkUrl'].replace('{id}', pullRequestId), function(body){
     var pullRequest = JSON.parse(body)
     if(pullRequest['assigned']){
       console.log("Already assigned a reviewer for pull request ID " + pullRequestId + ". Exiting.")
     } else {
       console.log("Assigning a new pull request reviewer for pull request ID " + pullRequestId)
       assignReviewer(githubToHipchatName, args['--github_commit_author'], args['--github_pull_request_link'], args['--hipchat_room_id'], args['--hipchat_auth_token'], 2)
-      put(args['--pull_request_update_url'].replace('{id}', pullRequestId), '{"assigned": true}', function(){
+      put(args['updateUrl'].replace('{id}', pullRequestId), '{"assigned": true}', function(){
         console.log("Successfully assigned reviewer for pull request ID " + pullRequestId)
       })
     }
@@ -96,6 +93,27 @@ function validate(){
     }) + ". See --help for more information.")
     process.exit(-1)
   }
+
+  // Missing environment variables?
+  createUrl = process.env.PULL_REQUEST_CREATE_TABLE_URL || ''; // The url of the HTTP service to create a table for storing related information using PUT',
+  checkUrl = process.env.PULL_REQUEST_CHECK_URL || '';         // The url of the HTTP service to retrieve a record in a requested table using GET',
+  updateUrl = process.env.PULL_REQUEST_UPDATE_URL || '';       // The url of the HTTP service to update a record in a requested table using PUT'
+
+  if(createUrl == '') {
+    console.error("Missing environment variable PULL_REQUEST_CREATE_TABLE_URL")
+  }
+
+  if(updateUrl == '') {
+    console.error("Missing environment variable PULL_REQUEST_UPDATE_URL")
+  }
+
+  if(checkUrl == '') {
+    console.error("Missing environment variable PULL_REQUEST_CHECK_URL")
+  }
+
+  args['createUrl'] = createUrl
+  args['updateUrl'] = updateUrl
+  args['checkUrl'] = checkUrl
 
   return args
 }
