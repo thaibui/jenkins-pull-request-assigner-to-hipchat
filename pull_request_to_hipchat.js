@@ -193,6 +193,7 @@ function put(requestUrl, data, responseCallback){
  * @param responseCallback
  */
 function invoke(http, options, data, responseCallback){
+  console.log("[INFO] HTTP request: " + JSON.stringify(options))
   var request = http.request(options, function(res){
     var body = '';
 
