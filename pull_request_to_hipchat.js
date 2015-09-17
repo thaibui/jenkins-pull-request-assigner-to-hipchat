@@ -166,6 +166,42 @@ function post(msg, roomId, authToken, successCallback){
 }
 
 /**
+ * Post a message to the provided Hipchat room ID v1
+ * @param msg
+ * @param roomId
+ * @param authToken
+ * @param successCallback
+ */
+function postV1(msg, roomId, authToken, format, successCallback){
+  serialize = function(obj) {
+    var str = [];
+    for(var p in obj)
+      if (obj.hasOwnProperty(p)) {
+        str.push(encodeURIComponent(p) + "=" + encodeURIComponent(obj[p]));
+      }
+    return str.join("&");
+  }
+
+  var body = serialize({
+    'room_id': roomId,
+    'color': 'purple',
+    'from': 'PR Assigner',
+    'message_format': format,
+    'message': msg
+  });
+
+  var options = util._extend({
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Length': body.length
+    }
+  }, url.parse("https://api.hipchat.com" + "/v1/rooms/message?auth_token=" + authToken))
+
+  invoke(https, options, body, successCallback)
+}
+
+/**
  * Perform a HTTP GET, collecting the body and call the responseCallback(body) when
  * the body has been collected and parsed to JSON
  * @param url
@@ -273,11 +309,14 @@ function assignReviewer(nameList, commitAuthor, pullRequestURL, roomId, authToke
   var secondary = names.length > 1 ? names[names.length - 1] : undefined
 
   if (primary != undefined) {
-    var msg = "A new pull request is created at " + pullRequestURL + "\n@" + outputHipchatNames[primary] + " could you please review this request?"
-    msg += secondary != undefined ? " If not, @" + outputHipchatNames[secondary] +" could you do that? Thanks!" : " Thanks!"
+    var firstMsg = 'A new pull request is created at <a href="' + pullRequestURL + '">' + pullRequestURL + '</a>';
+    var secondMsg = "@" + outputHipchatNames[primary] + ", could you please review this request?";
+    secondMsg += secondary != undefined ? " If not, @" + outputHipchatNames[secondary] +", could you do that? Thanks!" : " Thanks!"
 
-    post(msg, roomId, authToken, function() {
-      console.info("Message sucessfully posted to Hipchat room_id " + roomId)
+    postV1(firstMsg, roomId, authToken, 'html', function() {
+      postV1(secondMsg, roomId, authToken, 'text', function() {
+          console.info("Message sucessfully posted to Hipchat room_id " + roomId)
+      })
     })
   } else {
     console.warn("No possible reviewer exists. The list of Github authors is " + Object.keys(githubToHipchatName)
