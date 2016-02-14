@@ -1,11 +1,11 @@
 /***************************************
  * Github Pull Request to Hipchat
  *
- * This script notifies a specified Hipchat Room ID and assign a reviewer
+ * This script notifies a specified Hipchat Room ID and assigns a reviewer
  * to review a pull request from a list of provided names. Combining this
  * script with Jenkins Github Pull Request Builder, it is possible
- * to automatically build a new pull request then assign a new reviewer
- * , notify a Hipchat room if the build is successful.
+ * to automatically build a new pull request then assign a new reviewer,
+ * notify a Hipchat room if the build is successful.
  **************************************/
 
 var requiredArgs = {
@@ -21,7 +21,7 @@ var url = require('url')
 
 var args = validate()
 
-// Split the name list into a map of github usernames -> hipchat usernames
+// Splits the name list into a map of github usernames -> hipchat usernames
 var githubToHipchatName = {}
 args['--github_hipchat_name_list'].split(',').forEach(function(githubHipchatName){
   var tuple = githubHipchatName.split('-') || []
@@ -34,7 +34,7 @@ args['--github_hipchat_name_list'].split(',').forEach(function(githubHipchatName
   githubToHipchatName[githubUsername] = hipchatUsername
 })
 
-// Make sure the table is already created.
+// Makes sure the table is already created.
 put(args['createUrl'], "{}", function(){
   // Check to see if the PR ${ghprbPullId} already has a reviewer
   var pullRequestId = args['--github_pull_request_link'].split('/').splice(-1).pop()
@@ -57,7 +57,7 @@ put(args['createUrl'], "{}", function(){
  **********************************/
 
 /**
- * Validate the command line arguments. Returned the parsed arguments if the validation passes
+ * Validates the command line arguments. Returned the parsed arguments if the validation passes
  */
 function validate(){
   var argsCLI = process.argv.splice(2) || []
@@ -121,7 +121,7 @@ function validate(){
 }
 
 /**
- * Print a help message
+ * Prints a help message
  */
 function printHelp(){
   var message = "This script requires " + Object.keys(requiredArgs).length + " arguments with their associated values. " +
@@ -140,7 +140,7 @@ function printHelp(){
 }
 
 /**
- * Post a message to the provided Hipchat room ID
+ * Posts a message to the provided Hipchat room ID
  * @param msg
  * @param roomId
  * @param authToken
@@ -166,7 +166,7 @@ function post(msg, roomId, authToken, successCallback){
 }
 
 /**
- * Post a message to the provided Hipchat room ID v1
+ * Posts a message to the provided Hipchat room ID v1
  * @param msg
  * @param roomId
  * @param authToken
@@ -202,7 +202,7 @@ function postV1(msg, roomId, authToken, format, successCallback){
 }
 
 /**
- * Perform a HTTP GET, collecting the body and call the responseCallback(body) when
+ * Performs a HTTP GET, collecting the body and call the responseCallback(body) when
  * the body has been collected and parsed to JSON
  * @param url
  * @param responseCallback
@@ -221,7 +221,7 @@ function get(requestUrl, responseCallback){
 }
 
 /**
- * Perform a HTTP PUT, collecting the body and call the responseCallback(body) when
+ * Performs a HTTP PUT, collecting the body and call the responseCallback(body) when
  * the body has been collected and parsed to JSON
  * @param url
  * @param responseCallback
@@ -242,7 +242,7 @@ function put(requestUrl, data, responseCallback){
 }
 
 /**
- * Invoke a HTTP request, write the data to the request, handle callback
+ * Invokes a HTTP request, writes the data to the request, handles callback
  * @param client The http client object, could be http or https
  * @param options
  * @param data
@@ -273,7 +273,7 @@ function invoke(client, options, data, responseCallback){
 }
 
 /**
- * Randomly pick and assign maxReviewers from the map nameList (where it maps Github username to Hipchat username) as reviewers
+ * Randomly picks and assigsn maxReviewers from the map nameList (where it maps Github username to Hipchat username) as reviewers
  *
  * @param nameList
  * @param commitAuthor
